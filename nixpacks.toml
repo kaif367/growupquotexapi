@@ -1,16 +1,23 @@
+[providers]
+python = "3.11"
+
 [phases.setup]
-nixPkgs = ["...", "chromium", "xvfb-run"]
+nixPkgs = ["python311", "python311Packages.pip", "chromium", "xvfb-run"]
 
 [phases.install]
+dependsOn = ["setup"]
 cmds = [
-    "pip install -r requirements.txt",
-    "playwright install chromium",
-    "playwright install-deps chromium"
+    "python -m venv /opt/venv",
+    ". /opt/venv/bin/activate && pip install --upgrade pip",
+    ". /opt/venv/bin/activate && pip install -r requirements.txt",
+    ". /opt/venv/bin/activate && playwright install chromium",
+    ". /opt/venv/bin/activate && playwright install-deps chromium"
 ]
 
 [start]
-cmd = "python api_server.py"
+cmd = ". /opt/venv/bin/activate && python api_server.py"
 
 [variables]
 PLAYWRIGHT_BROWSERS_PATH = "/app/browsers"
 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "0"
+PATH = "/opt/venv/bin:$PATH"

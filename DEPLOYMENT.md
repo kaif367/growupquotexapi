@@ -1,7 +1,14 @@
 # Quotex API Railway Deployment Guide
 
+## ⚠️ Important: Railway Deployment Limitations
+
+**Railway cannot run Playwright browser automation**, which is required for real Quotex connections. You have two options:
+
+1. **Local Deployment** (Recommended) - Full functionality with real Quotex data
+2. **Railway Deployment** - Simplified API without real data (for testing only)
+
 ## Overview
-This guide explains how to deploy the Quotex API service on Railway for 24/7 operation.
+This guide explains deployment options for the Quotex API service.
 
 ## Features
 The API server (`api_server.py`) provides:
@@ -16,37 +23,56 @@ The API server (`api_server.py`) provides:
 
 ## Deployment Steps
 
-### 1. Prepare Your Repository
-Ensure these files are in your repository:
-- `api_server.py` - FastAPI server
-- `requirements.txt` - Python dependencies
-- `railway.json` - Railway configuration
-- `nixpacks.toml` - Build configuration
-- `Procfile` - Start command
-- `settings/config.ini` - Your Quotex credentials
+### Option 1: Local Deployment (RECOMMENDED)
 
-### 2. Deploy to Railway
+**For production trading bots with real Quotex data:**
 
-1. **Create Railway Account**
-   - Go to [railway.app](https://railway.app)
-   - Sign up/login with GitHub
+1. Run locally on your machine or VPS:
+```bash
+pip install -r requirements.txt
+python api_server.py
+```
 
-2. **Create New Project**
-   - Click "New Project"
-   - Choose "Deploy from GitHub repo"
-   - Select your repository
+2. Access at `http://localhost:8000`
 
-3. **Configure Environment Variables**
-   In Railway dashboard, add these variables:
-   ```
-   PORT=8000
-   PYTHON_VERSION=3.11
-   PLAYWRIGHT_BROWSERS_PATH=/app/browsers
-   ```
+3. Keep running 24/7 using:
+   - Windows: Task Scheduler
+   - Linux: systemd service or screen/tmux
+   - VPS: PM2 or supervisor
 
-4. **Deploy**
-   - Railway will automatically deploy when you push to GitHub
-   - First deployment may take 5-10 minutes (installing Playwright)
+### Option 2: Railway Deployment (Simplified Version)
+
+**Note:** This version does NOT connect to real Quotex data due to browser automation limitations.
+
+#### Files for Railway:
+- `api_server_simple.py` - Simplified FastAPI server
+- `requirements_simple.txt` - Minimal dependencies
+- `Procfile` - Update to: `web: python api_server_simple.py`
+- `runtime.txt` - Python version
+
+### Deploy Simplified Version to Railway
+
+1. **Update Procfile:**
+```
+web: python api_server_simple.py
+```
+
+2. **Use simplified requirements:**
+```bash
+cp requirements_simple.txt requirements.txt
+```
+
+3. **Push to GitHub:**
+```bash
+git add .
+git commit -m "Use simplified version for Railway"
+git push
+```
+
+4. **Deploy on Railway:**
+   - Connect GitHub repo
+   - Railway will auto-deploy
+   - No browser dependencies needed
 
 ### 3. Access Your API
 
@@ -76,10 +102,26 @@ curl -X POST https://your-app.railway.app/candles/progressive \
 - Automatically reconnects on disconnection
 - Session cookies are stored in `session.json`
 
-### Railway Limitations
-- Free tier: 500 hours/month
-- Hobby tier ($5/month): Unlimited hours
-- Memory: 512MB (free) / 8GB (hobby)
+### Why Browser Automation Doesn't Work on Railway
+
+1. **Playwright requires headless browser** - Complex system dependencies
+2. **Railway's container environment** - Limited support for browser processes
+3. **Authentication cookies** - Quotex requires browser-based authentication
+
+### Recommended Architecture
+
+```
+[Local Machine/VPS]
+    |
+    v
+[api_server.py with Playwright]
+    |
+    v
+[Real Quotex WebSocket Connection]
+    |
+    v
+[Your Trading Bot accesses http://localhost:8000]
+```
 
 ### Troubleshooting
 
