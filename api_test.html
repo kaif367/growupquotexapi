@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quotex API Tester</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .endpoint-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .endpoint-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2196F3;
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .response {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #2196F3;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            border-left-color: #f44336;
+            background-color: #ffebee;
+        }
+        .success {
+            border-left-color: #4CAF50;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-online {
+            background-color: #4CAF50;
+        }
+        .status-offline {
+            background-color: #f44336;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        label {
+            display: inline-block;
+            width: 100px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Quotex API Tester</h1>
+    
+    <div class="endpoint-section">
+        <div class="endpoint-title">
+            <span id="statusIndicator" class="status-indicator status-offline"></span>
+            Connection Status
+        </div>
+        <button onclick="checkStatus()">Check Status</button>
+        <button onclick="checkRoot()">Test Root Endpoint</button>
+        <div id="statusResponse" class="response"></div>
+    </div>
+
+    <div class="endpoint-section">
+        <div class="endpoint-title">📊 Progressive Candles (Main Endpoint for Bots)</div>
+        <div class="form-group">
+            <label>Asset:</label>
+            <input type="text" id="asset" value="EURUSD_otc" />
+        </div>
+        <div class="form-group">
+            <label>Period (sec):</label>
+            <input type="number" id="period" value="60" />
+        </div>
+        <div class="form-group">
+            <label>Days:</label>
+            <input type="number" id="days" value="1" />
+        </div>
+        <button onclick="getProgressiveCandles()">Get Progressive Candles</button>
+        <div id="progressiveResponse" class="response"></div>
+    </div>
+
+    <div class="endpoint-section">
+        <div class="endpoint-title">💰 Account Information</div>
+        <div class="form-group">
+            <label>Account Type:</label>
+            <select id="accountType">
+                <option value="PRACTICE">Practice</option>
+                <option value="REAL">Real</option>
+            </select>
+        </div>
+        <button onclick="getBalance()">Get Balance</button>
+        <button onclick="getProfile()">Get Profile</button>
+        <div id="accountResponse" class="response"></div>
+    </div>
+
+    <div class="endpoint-section">
+        <div class="endpoint-title">📈 Quick Candles</div>
+        <div class="form-group">
+            <label>Asset:</label>
+            <input type="text" id="quickAsset" value="EURUSD_otc" />
+        </div>
+        <div class="form-group">
+            <label>Period (sec):</label>
+            <input type="number" id="quickPeriod" value="60" />
+        </div>
+        <div class="form-group">
+            <label>Offset (sec):</label>
+            <input type="number" id="quickOffset" value="3600" />
+        </div>
+        <button onclick="getQuickCandles()">Get Candles</button>
+        <div id="quickResponse" class="response"></div>
+    </div>
+
+    <div class="endpoint-section">
+        <div class="endpoint-title">🎯 Available Assets</div>
+        <button onclick="getAssets()">Get All Assets</button>
+        <div id="assetsResponse" class="response"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        async function makeRequest(endpoint, method = 'GET', body = null) {
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                };
+                
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+                
+                const response = await fetch(`${API_URL}${endpoint}`, options);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Request failed');
+                }
+                
+                return { success: true, data };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function checkStatus() {
+            const result = await makeRequest('/status');
+            const responseDiv = document.getElementById('statusResponse');
+            const indicator = document.getElementById('statusIndicator');
+            
+            if (result.success) {
+                responseDiv.className = 'response success';
+                responseDiv.textContent = JSON.stringify(result.data, null, 2);
+                
+                if (result.data.connected) {
+                    indicator.className = 'status-indicator status-online';
+                } else {
+                    indicator.className = 'status-indicator status-offline';
+                }
+            } else {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = `Error: ${result.error}`;
+                indicator.className = 'status-indicator status-offline';
+            }
+        }
+
+        async function checkRoot() {
+            const result = await makeRequest('/');
+            const responseDiv = document.getElementById('statusResponse');
+            
+            if (result.success) {
+                responseDiv.className = 'response success';
+                responseDiv.textContent = JSON.stringify(result.data, null, 2);
+            } else {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = `Error: ${result.error}`;
+            }
+        }
+
+        async function getProgressiveCandles() {
+            const asset = document.getElementById('asset').value;
+            const period = parseInt(document.getElementById('period').value);
+            const days = parseInt(document.getElementById('days').value);
+            
+            const responseDiv = document.getElementById('progressiveResponse');
+            responseDiv.textContent = 'Loading... This may take a while for multiple days of data...';
+            
+            const result = await makeRequest('/candles/progressive', 'POST', {
+                asset: asset,
+                period: period,
+                days: days
+            });
+            
+            if (result.success) {
+                responseDiv.className = 'response success';
+                const summary = {
+                    asset: result.data.asset,
+                    period: result.data.period,
+                    days: result.data.days,
+                    total_candles: result.data.count,
+                    first_candle: result.data.candles?.[0],
+                    last_candle: result.data.candles?.[result.data.candles.length - 1]
+                };
+                responseDiv.textContent = JSON.stringify(summary, null, 2);
+            } else {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = `Error: ${result.error}`;
+            }
+        }
+
+        async function getBalance() {
+            const accountType = document.getElementById('accountType').value;
+            const result = await makeRequest(`/balance?account_type=${accountType}`);
+            const responseDiv = document.getElementById('accountResponse');
+            
+            if (result.success) {
+                responseDiv.className = 'response success';
+                responseDiv.textContent = JSON.stringify(result.data, null, 2);
+            } else {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = `Error: ${result.error}`;
+            }
+        }
+
+        async function getProfile() {
+            const result = await makeRequest('/profile');
+            const responseDiv = document.getElementById('accountResponse');
+            
+            if (result.success) {
+                responseDiv.className = 'response success';
+                responseDiv.textContent = JSON.stringify(result.data, null, 2);
+            } else {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = `Error: ${result.error}`;
+            }
+        }
+
+        async function getQuickCandles() {
+            const asset = document.getElementById('quickAsset').value;
+            const period = parseInt(document.getElementById('quickPeriod').value);
+            const offset = parseInt(document.getElementById('quickOffset').value);
+            
+            const result = await makeRequest(`/candles?asset=${asset}&period=${period}&offset=${offset}`);
+            const responseDiv = document.getElementById('quickResponse');
+            
+            if (result.success) {
+                responseDiv.className = 'response success';
+                responseDiv.textContent = JSON.stringify(result.data, null, 2);
+            } else {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = `Error: ${result.error}`;
+            }
+        }
+
+        async function getAssets() {
+            const responseDiv = document.getElementById('assetsResponse');
+            responseDiv.textContent = 'Loading assets...';
+            
+            const result = await makeRequest('/assets');
+            
+            if (result.success) {
+                responseDiv.className = 'response success';
+                const summary = {
+                    total_assets: result.data.count,
+                    sample_assets: result.data.asset_names?.slice(0, 10)
+                };
+                responseDiv.textContent = JSON.stringify(summary, null, 2);
+            } else {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = `Error: ${result.error}`;
+            }
+        }
+
+        // Check status on load
+        window.onload = () => {
+            checkStatus();
+        };
+    </script>
+</body>
+</html>
